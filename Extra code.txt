@@ -1,0 +1,229 @@
+------------------------------------------------------------------------------------------------------------------------------------------
+//main lamp code
+#include <DFRobot_DHT11.h>
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <WebServer.h>
+#include <ESPmDNS.h>
+#include "homepage.h"
+#include "time.h"
+
+DFRobot_DHT11 DHT;
+#define DHT11_PIN 4
+#define TRIG_PIN 5
+#define ECHO_PIN 18
+#define LIGHT_SENSOR_PIN 34
+#define LED 7
+
+const char* ssid = ".....";
+const char* password = "....";
+//int *alarm[23];
+int x, count = 0;
+
+WebServer server(80);
+
+void handleRoot() {
+  String message = homePagePart1 + getTemp() + homePagePart2;
+  server.send(200, "text/html", message);
+}
+
+void handleNotFound() {
+  String message = "File Not Found\n\n";
+  message += "URI: ";
+  message += server.uri();
+  message += "\nMethod: ";
+  message += (server.method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += server.args();
+  message += "\n";
+  for (uint8_t i = 0; i < server.args(); i++) {
+    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+  }
+  server.send(404, "text/plain", message);
+}
+
+void setup(){
+  Serial.begin(115200);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  Serial.println("");
+
+  // Wait for connection
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  if (MDNS.begin("esp32")) {
+    Serial.println("MDNS responder started");
+  }
+
+  server.on("/", handleRoot);
+  server.on("/inline", []() {
+    server.send(200, "text/plain", "this works as well");
+  });
+  server.onNotFound(handleNotFound);
+
+  server.begin();
+  Serial.println("HTTP server started");
+
+  pinMode(LIGHT_SENSOR_PIN, INPUT);
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  pinMode(LED, OUTPUT);
+}
+
+void loop()
+{
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+
+  server.handleClient();
+  delay(2);//allow the cpu to switch to other task
+
+  switch(count)
+  {
+    case 1: //manual mode
+	
+    break;
+    case 2: //night-mode
+  	digitalWrite(TRIG_PIN, LOW);
+  	delayMicroseconds(5);
+	digitalWrite(TRIG_PIN, HIGH);
+  	delayMicroseconds(10);
+  	digitalWrite(TRIG_PIN, LOW);
+
+  	long duration = pulseIn(ECHO_PIN, HIGH);
+  	float distance = duration * 0.034 / 2;
+
+  	if (distance > 20)
+  	{
+  	  digitalWrite(LED, HIGH);
+  	  for(x = 0; x < count; x++)
+ 	{
+  	delay_ms(1000);
+    	}
+    	digitalWrite(LED, LOW);
+  	}
+    	break;
+    case 3: //auto
+	int analogValue = analogRead(LIGHT_SENSOR_PIN)/16;
+  	analogWrite(LED, analogValue);
+    	break;
+    default: //defaults to auto
+	int analogValue = analogRead(LIGHT_SENSOR_PIN)/16;
+  	analogWrite(LED, analogValue);
+    	break;
+  }
+  DHT.read(DHT11_PIN);
+  Serial.print("temp:");
+  Serial.print(DHT.temperature);
+  Serial.print("  humi:");
+  Serial.println(DHT.humidity);
+  delay(1000);
+}
+
+
+
+//auto mode
+auto()
+{
+  int analogValue = analogRead(LIGHT_SENSOR_PIN)/16;
+  analogWrite(LED, analogValue);
+}
+
+//night-mode
+night()
+{
+  int x, count = 0;
+
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(5);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+  long duration = pulseIn(ECHO_PIN, HIGH);
+  float distance = duration * 0.034 / 2;
+  if (distance > 20)
+  {
+    digitalWrite(LED, HIGH);
+    for(x = 0; x < count; x++)
+    {
+      delay_ms(1000);
+    }
+    digitalWrite(LED, LOW);
+    x = 0;
+  }
+}
+
+//manual mode
+manual()
+{
+}
+
+DHT11()
+{
+  DHT.read(DHT11_PIN);
+  Serial.print("temp:");
+  Serial.print(DHT.temperature);
+  Serial.print("  humi:");
+  Serial.println(DHT.humidity);
+  delay(1000);
+}
+
+//LDR code
+#define LIGHT_SENSOR_PIN 34
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(LIGHT_SENSOR_PIN, INPUT);
+}
+
+void loop() {
+  int analogValue = analogRead(Light_sensor_pin)/16;
+  analogWrite(LED, analogValue);
+}
+
+//ultra sonic sensor
+#define Trig_pin 5
+#define Echo_pin 18
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(Trig_pin, OUTPUT);
+  pinMode(Echo_pin, INPUT);
+}
+
+void loop() {
+  digitalWrite(Trig_pin, LOW);
+  delayMicroseconds(5);
+  digitalWrite(Trig_pin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(Trig_pin, LOW);
+  long duration = pulseIn(Echo_Pin, HIGH);
+  float distance = duration * 0.034 / 2;
+  Serial.print(distance);
+  Serial.print(" cms");
+  Serial.println();
+  delay(1000);
+}
+------------------------------------------------------------------------------------------------------------------------------------------
+//main wristband code
+#define HEART_RATE_SENSOR 34
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(HEART_RATE_SENSOR, INPUT);
+}
+
+//heart-rate sensor
+{
+  int heart_rate = analogRead(HEART_RATE_SENSOR);
+  Serial.println(heart_rate);
+  delay(1000);
+}
+

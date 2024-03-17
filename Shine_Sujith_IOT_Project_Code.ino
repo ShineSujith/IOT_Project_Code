@@ -1,3 +1,4 @@
+//code for lamp
 #include <DFRobot_DHT11.h>
 #include <Wire.h>
 #include <WiFi.h>
@@ -271,25 +272,55 @@ void ultra_sonic() {
   	}
 }
 
-//wristband
-/*#include <Adafruit_MPU6050.h>
+// code for wristband
+/*
+#include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <ThingSpeak.h>
+#include "time.h"
 #include "Wire.h"
+#include "secrets.h"
 #include "DFRobot_Heartrate.h"
 
 #define HEART_RATE_PIN 4
 
-Adafruit_MPU6050 mpu;
-
 DFRobot_Heartrate heartrate(DIGITAL_MODE); // ANALOG_MODE or DIGITAL_MODE
+Adafruit_MPU6050 mpu;
+WiFiClient  client;
+
+char ssid[] = SECRET_SSID;   // your network SSID (name) 
+char pass[] = SECRET_PASS;   // your network password
+
+unsigned long myChannelNumber = SECRET_CH_ID;
+const char * myWriteAPIKey = SECRET_WRITE_APIKEY;
+
+//values used to config time
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 0;
+const int   daylightOffset_sec = 3600;
+
+int date, hrs, min, sec;
+hw_timer_t *MyTimer = NULL;
+
+char timeDayMonth[3];
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
-  while (!Serial)
-    delay(10); // will pause Zero, Leonardo, etc until serial console opens
-
-  Serial.println("Adafruit MPU6050 test!");
+  ThingSpeak.begin(client); // Initialize ThingSpeak
+  WiFi.begin(ssid, pass);   //connects to wifi
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");//prints dots while waiting to connect to the wifi
+  }
+  Serial.println("");
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);//configures time
 
   // Try to initialize!
   if (!mpu.begin()) {
@@ -310,43 +341,65 @@ void setup() {
 
   Serial.println("");
   delay(100);
+  MyTimer = timerBegin(0, 80, true);            //initializes the GPIO21 as output with the help of the pinMode macro.
+  timerAttachInterrupt(MyTimer, &sleep, true);  //attaches interrupt
+  timerAlarmWrite(MyTimer, 1000000, true);      //set the delay to 1 sec
+  timerAlarmEnable(MyTimer);                    //enables interrupt
+  findDate();
+  temp = date;
+}
+
+void IRAM_ATTR sleep(){
+  if(a.acceleration.x > 5 || a.acceleration.y > 5 || a.acceleration.z > 11 && ) {
+    sec++;
+    if(sec > 59) {
+      sec = 0;
+      min++;
+    }
+    if(min > 59) {
+      min = 0;
+      hrs++;
+    }
+  }
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  ThingSpeak.setField(3, hrs);
+  findDate();
+  if(temp != date) {
+    temp = date;
+    ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+    hrs = 0;
+    min = 0;
+    sec = 0;
+  }
   if(mpu.getMotionInterruptStatus()) {
-    // Get new sensor events with the readings
+    //Get new sensor events with the readings
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
-
-    //Print out the values 
-    Serial.print("AccelX:");
-    Serial.print(a.acceleration.x);
-    Serial.print(",");
-    Serial.print("AccelY:");
-    Serial.print(a.acceleration.y);
-    Serial.print(",");
-    Serial.print("AccelZ:");
-    Serial.print(a.acceleration.z);
-    Serial.println("");
   }
-
-  delay(10);
-}
-
-void heart_rate() {
-    // put your main code here, to run repeatedly:
-  //code for DIGITAL_MODE
+    //code for DIGITAL_MODE
   uint8_t rateValue;
   heartrate.getValue(HEART_RATE_PIN); // samples values from pin
-  rateValue = heartrate.getRate(); // Get heart rate value 
+  rateValue = heartrate.getRate();    // Get heart rate value 
   if(rateValue)  {
     Serial.println(rateValue);
   }
-  delay(20);
-
   //code for ANALOG_MODE
-  /*  int sensorValue = analogRead(HEART_RATE_PIN);
-  Serial.println(sensorValue);
-  delay(10);*/
-//}
+  //int sensorValue = analogRead(HEART_RATE_PIN);
+  //Serial.println(sensorValue);
+
+  //delay(10);
+  delay(20);
+}
+
+void findDate(){
+  struct tm timeinfo; //%A = day of week, %B = month, %d = day of month, %Y = year, %H = hour, %M = minute, %S = second
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    return;
+  }
+  strftime(timeDayMonth, 3, "%d", &timeinfo);
+  date = atoi(timeDayMonth);
+}
+*/

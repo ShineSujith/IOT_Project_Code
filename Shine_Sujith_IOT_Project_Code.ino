@@ -63,12 +63,14 @@ char timeDayMonth[3];
 
 int alarm1 = 25;
 char alarm2[3];
-int buzzer_off = 0;
+int buzzerOff = 0;
 int daytime;
-int nightmode = 0;
-unsigned long mytime;
+int nightMode = 0;
+int sliderValue;
+int currentMode = 1;
+int alarmOff = 0;
 String myStatus;
-//int morning, night;
+
 
 void handleRoot() {
   //creates a string that will be sent to the web server
@@ -99,6 +101,18 @@ void handleNotFound() {
   server.send(404, "text/plain", message);
 }
 
+void handleKeyPress() {
+  String recievedData = "You pressed: " + server.arg("button");
+  currentMode = recievedData.toInt();
+  server.send(200);
+}
+
+void handleSlider() {
+  String recievedSliderInput = server.arg("slider");
+  sliderValue = recievedSliderInput.toInt();
+  server.send(200);
+}
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200); //initializes serial monitor at 115200 baud
@@ -123,6 +137,8 @@ void setup() {
   }
 
   server.on("/", handleRoot);
+  server.on("/sentKeyPressToWebServer", handleKeyPress);
+  server.on("/sentSliderInputToWebServer", handleSlider);
   server.on("/inline", []() {
     server.send(200, "text/plain", "this works as well");
   });
@@ -161,20 +177,31 @@ void loop() {
   server.handleClient();
   delay(2);//allow the cpu to switch to other tasks
   delay(1000);
-  if(nightmode == 1) {// decreases the delay for the ultrasonic sensor
+
+  if(nightMode == 1) {// decreases the delay for the ultrasonic sensor
     ultra_sonic();
   }
   printLocalTime(); //function to get and print the time
-  if(daytime > 9 && daytime < 21) {
-    int analogValue = analogRead(LIGHT_SENSOR_PIN)/16; //returns a value from 0 - 255
-    int light_level = (analogValue + 255) - (2 * analogValue); //used to flip that value i.e 255 becomes 0
-    //Serial.println(light_level);
-  	analogWrite(LED, light_level); //changes brightness of the LED
-    nightmode = 0;
-  }
-  else {
-    ultra_sonic(); //function to turn on the LED for 10 seconds using an ultrasonic sensor
-    nightmode = 1;
+
+  int analogValue = 0;
+  switch(currentMode) {
+    case 0:
+      ultra_sonic(); //function to turn on the LED for 10 seconds using an ultrasonic sensor
+      nightMode = 1;
+    break;
+    case 1:
+      analogValue = analogRead(LIGHT_SENSOR_PIN)/16; //returns a value from 0 - 255
+      //int light_level = (analogValue + 255) - (2 * analogValue); //used to flip that value i.e 255 becomes 0
+      //Serial.println(analogValue);
+      analogWrite(LED, analogValue); //changes brightness of the LED
+      nightMode = 0;
+    break;
+    case 2:
+      analogWrite(LED, sliderValue);
+    break;
+    default:
+      Serial.println("Pick a mode on the website");
+    break;
   }
   //reads temperature and humidity values from the DHT11 and displays them on the LCD
   DHT.read(DHT11_PIN);
@@ -200,15 +227,17 @@ void loop() {
   else {
     myStatus = String("Temperature is fine.");
   }
+
   ThingSpeak.setStatus(myStatus);
   int j = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+
   if(j == 200) {
     Serial.println("Channel update successful.");
   }
   else {
     Serial.println("Problem updating channel. HTTP error code " + String(j));
   }
-  delay(20000);
+  //delay(20000);
 }
 
 void printLocalTime(){
@@ -222,7 +251,7 @@ void printLocalTime(){
   lcd.setCursor(0, 1);
   lcd.print(&timeinfo,"%B %H:%M");
   delay(1000);
-  if(nightmode == 1) {
+  if(nightMode == 1) {
     ultra_sonic();
   }
   
@@ -232,174 +261,179 @@ void printLocalTime(){
   strftime(timeMonth, 10, "%B", &timeinfo);
   strftime(timeDayMonth, 3, "%d", &timeinfo);
   //Serial.println("");
-  //Serial.println(touchRead(BUTTON));
+  Serial.println(touchRead(BUTTON));
   daytime =  atoi(timeHour); //converts the string timeHour to an integer and stores it in daytime
   //turns on and off the alarm/buzzer
   if(daytime == alarm1) {
-    if(touchRead(BUTTON) < 30) {
-      buzzer_off = 1;
-    }
-    else if(buzzer_off == 1) {
-      digitalWrite(BUZZER, LOW);
-    }
-    else {
-      digitalWrite(BUZZER, HIGH);
+    if(alarmOff == 0) {
+      if(touchRead(BUTTON) < 30) {
+        buzzerOff = 1;
+      }
+      else if(buzzerOff == 1) {
+        digitalWrite(BUZZER, LOW);
+        buzzerOff = 0;
+        alarmOff = 1;
+      }
+      else {
+        digitalWrite(BUZZER, HIGH);
+      }
     }
   }
   else {
-    buzzer_off = 0;
+    buzzerOff = 0;
+    alarmOff = 0;
   }
 }
 
 void ultra_sonic() {
-    digitalWrite(TRIG_PIN, LOW);
-  	delayMicroseconds(5);
-	  digitalWrite(TRIG_PIN, HIGH);
-  	delayMicroseconds(10);
-  	digitalWrite(TRIG_PIN, LOW);
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(5);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
 
-  	long duration = pulseIn(ECHO_PIN, HIGH); //measures how long the echo pins stays high for
-  	float distance = duration * 0.034 / 2; //calculates the distance
-    //Serial.println(distance);
+  long duration = pulseIn(ECHO_PIN, HIGH); //measures how long the echo pins stays high for
+  float distance = duration * 0.034 / 2; //calculates the distance
+  //Serial.println(distance);
 
-  	if (distance < 20) {
-      //turns on the LED for 10 seconds
-  	  digitalWrite(LED, HIGH);
-  	  for(int x = 0; x < 10; x++) {
-  	    delay(1000);
-    	}
-    	digitalWrite(LED, LOW);
-  	}
-}
-
-// code for wristband
-/*
-#include <Adafruit_MPU6050.h>
-#include <Adafruit_Sensor.h>
-#include <WiFi.h>
-#include <WiFiClient.h>
-#include <ThingSpeak.h>
-#include "time.h"
-#include "Wire.h"
-#include "secrets.h"
-#include "DFRobot_Heartrate.h"
-
-#define HEART_RATE_PIN 4
-
-DFRobot_Heartrate heartrate(DIGITAL_MODE); // ANALOG_MODE or DIGITAL_MODE
-Adafruit_MPU6050 mpu;
-WiFiClient  client;
-
-char ssid[] = SECRET_SSID;   // your network SSID (name) 
-char pass[] = SECRET_PASS;   // your network password
-
-unsigned long myChannelNumber = SECRET_CH_ID;
-const char * myWriteAPIKey = SECRET_WRITE_APIKEY;
-
-//values used to config time
-const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = 0;
-const int   daylightOffset_sec = 3600;
-
-int date, hrs, min, sec;
-hw_timer_t *MyTimer = NULL;
-
-char timeDayMonth[3];
-
-void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(115200);
-  ThingSpeak.begin(client); // Initialize ThingSpeak
-  WiFi.begin(ssid, pass);   //connects to wifi
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");//prints dots while waiting to connect to the wifi
-  }
-  Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println(ssid);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);//configures time
-
-  // Try to initialize!
-  if (!mpu.begin()) {
-    Serial.println("Failed to find MPU6050 chip");
-    while (1) {
-      delay(10);
+  if (distance < 20) {
+    //turns on the LED for 10 seconds
+    digitalWrite(LED, HIGH);
+    for(int x = 0; x < 10; x++) {
+      delay(1000);
     }
-  }
-  Serial.println("MPU6050 Found!");
-
-  //setupt motion detection
-  mpu.setHighPassFilter(MPU6050_HIGHPASS_0_63_HZ);
-  mpu.setMotionDetectionThreshold(1);
-  mpu.setMotionDetectionDuration(20);
-  mpu.setInterruptPinLatch(true);	// Keep it latched.  Will turn off when reinitialized.
-  mpu.setInterruptPinPolarity(true);
-  mpu.setMotionInterrupt(true);
-
-  Serial.println("");
-  delay(100);
-  MyTimer = timerBegin(0, 80, true);            //initializes the GPIO21 as output with the help of the pinMode macro.
-  timerAttachInterrupt(MyTimer, &sleep, true);  //attaches interrupt
-  timerAlarmWrite(MyTimer, 1000000, true);      //set the delay to 1 sec
-  timerAlarmEnable(MyTimer);                    //enables interrupt
-  findDate();
-  temp = date;
-}
-
-void IRAM_ATTR sleep(){
-  if(a.acceleration.x > 5 || a.acceleration.y > 5 || a.acceleration.z > 11 && ) {
-    sec++;
-    if(sec > 59) {
-      sec = 0;
-      min++;
-    }
-    if(min > 59) {
-      min = 0;
-      hrs++;
-    }
+    digitalWrite(LED, LOW);
   }
 }
 
-void loop() {
-  ThingSpeak.setField(3, hrs);
-  findDate();
-  if(temp != date) {
-    temp = date;
-    ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
-    hrs = 0;
-    min = 0;
-    sec = 0;
-  }
-  if(mpu.getMotionInterruptStatus()) {
-    //Get new sensor events with the readings
-    sensors_event_t a, g, temp;
-    mpu.getEvent(&a, &g, &temp);
-  }
-    //code for DIGITAL_MODE
-  uint8_t rateValue;
-  heartrate.getValue(HEART_RATE_PIN); // samples values from pin
-  rateValue = heartrate.getRate();    // Get heart rate value 
-  if(rateValue)  {
-    Serial.println(rateValue);
-  }
-  //code for ANALOG_MODE
-  //int sensorValue = analogRead(HEART_RATE_PIN);
-  //Serial.println(sensorValue);
+// // code for wristband
+// #include <Adafruit_MPU6050.h>
+// #include <Adafruit_Sensor.h>
+// #include <WiFi.h>
+// #include <WiFiClient.h>
+// #include <ThingSpeak.h>
+// #include "time.h"
+// #include "Wire.h"
+// #include "secrets.h"
+// #include "DFRobot_Heartrate.h"
 
-  //delay(10);
-  delay(20);
-}
+// #define HEART_RATE_PIN 4
 
-void findDate(){
-  struct tm timeinfo; //%A = day of week, %B = month, %d = day of month, %Y = year, %H = hour, %M = minute, %S = second
-  if(!getLocalTime(&timeinfo)){
-    Serial.println("Failed to obtain time");
-    return;
-  }
-  strftime(timeDayMonth, 3, "%d", &timeinfo);
-  date = atoi(timeDayMonth);
-}
-*/
+// DFRobot_Heartrate heartrate(DIGITAL_MODE); // ANALOG_MODE or DIGITAL_MODE
+// Adafruit_MPU6050 mpu;
+// WiFiClient  client;
+
+// char ssid[] = SECRET_SSID;   // your network SSID (name) 
+// char pass[] = SECRET_PASS;   // your network password
+
+// unsigned long myChannelNumber = SECRET_CH_ID;
+// const char * myWriteAPIKey = SECRET_WRITE_APIKEY;
+
+// //values used to config time
+// const char* ntpServer = "pool.ntp.org";
+// const long  gmtOffset_sec = 0;
+// const int   daylightOffset_sec = 3600;
+
+// int date, hrs1, min1, sec1;
+// int awakeFlag = 1;
+// hw_timer_t *MyTimer = NULL;
+
+// char timeDayMonth[3];
+
+// void setup() {
+//   // put your setup code here, to run once:
+//   Serial.begin(115200);
+//   ThingSpeak.begin(client); // Initialize ThingSpeak
+//   WiFi.begin(ssid, pass);   //connects to wifi
+//   while (WiFi.status() != WL_CONNECTED) {
+//     delay(500);
+//     Serial.print(".");//prints dots while waiting to connect to the wifi
+//   }
+//   Serial.println("");
+//   Serial.print("Connected to ");
+//   Serial.println(ssid);
+//   Serial.print("IP address: ");
+//   Serial.println(WiFi.localIP());
+//   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);//configures time
+
+//   // Try to initialize!
+//   if (!mpu.begin()) {
+//     Serial.println("Failed to find MPU6050 chip");
+//     while (1) {
+//       delay(10);
+//     }
+//   }
+//   Serial.println("MPU6050 Found!");
+
+//   //setupt motion detection
+//   mpu.setHighPassFilter(MPU6050_HIGHPASS_0_63_HZ);
+//   mpu.setMotionDetectionThreshold(1);
+//   mpu.setMotionDetectionDuration(20);
+//   mpu.setInterruptPinLatch(true);	// Keep it latched.  Will turn off when reinitialized.
+//   mpu.setInterruptPinPolarity(true);
+//   mpu.setMotionInterrupt(true);
+
+//   Serial.println("");
+//   delay(100);
+//   MyTimer = timerBegin(0, 80, true);            
+//   timerAttachInterrupt(MyTimer, &sleep, true);  //attaches interrupt
+//   timerAlarmWrite(MyTimer, 1000000, true);      //set the delay to 1 sec
+//   timerAlarmEnable(MyTimer);                    //enables interrupt
+//   findDate();
+//   temp = date;
+// }
+
+// void IRAM_ATTR sleep(){
+//   if(awakeFlag == 0) {
+//     sec++;
+//     if(sec > 59) {
+//       sec = 0;
+//       min1++;
+//     }
+//     Serial.println(sec);
+//   }
+//   hrs = min1/60;
+//   awakeFlag = 1;
+// }
+
+// void loop() {
+//   ThingSpeak.setField(3, hrs1);
+//   findDate();
+//   if(temp != date) {
+//     temp = date;
+//     ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+//     hrs1 = 0;
+//     min1 = 0;
+//     sec1 = 0;
+//   }
+
+//   //code for DIGITAL_MODE
+//   uint8_t rateValue;
+//   heartrate.getValue(HEART_RATE_PIN); // samples values from pin
+//   rateValue = heartrate.getRate(); // Get heart rate value 
+//   if(rateValue)  {
+//     if(mpu.getMotionInterruptStatus()) {
+//       awakeFlag = 1;
+//     }
+//     else {
+//       awakeFlag = 0;
+//     }
+//     Serial.println(rateValue);
+//   }
+//   delay(20);
+
+//   //code for ANALOG_MODE
+//   /*  int sensorValue = analogRead(HEART_RATE_PIN);
+//   Serial.println(sensorValue);
+//   delay(10);*/
+// }
+
+// void findDate(){
+//   struct tm timeinfo; //%A = day of week, %B = month, %d = day of month, %Y = year, %H = hour, %M = minute, %S = second
+//   if(!getLocalTime(&timeinfo)){
+//     Serial.println("Failed to obtain time");
+//     return;
+//   }
+//   strftime(timeDayMonth, 3, "%d", &timeinfo);
+//   date = atoi(timeDayMonth);
+// }

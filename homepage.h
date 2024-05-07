@@ -2,12 +2,14 @@ String homePagePart1 = F(R"=====(
 <!DOCTYPE html>
 <html lang="en" > <!-- Needed for Screenreaders !-->
 <head>
+    <meta http-equiv="refresh" content="30">
 <!-- UTF-8 character set covers most characters in the world -->
   <meta charset="utf-8">
   <!-- Make page respond to screen size !-->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <!--Include a Title. Used by Search Engines -->
-<title> Temperature Reading WebServer </title>
+</head>
+<!--Title. Used by Search Engines -->
+<title> Smart Bedside Lamp/Alarm WebServer </title>
 <style>
     *{
         font-family: Arial;
@@ -31,13 +33,6 @@ String homePagePart1 = F(R"=====(
     body {       
 	    background-color: rgb(56, 141, 226);
 	}
-
-    h1{
-        font: bold;
-        font-size: 40px;
-        color: white;
-	    text-align: center;
-    }
     h2{
         font: bold;
         font-size: 40px;
@@ -76,12 +71,14 @@ String homePagePart1 = F(R"=====(
 
 </style>
 
+<script>
+    function sendSliderValue(slider) {
+        fetch('/sentSliderInputToWebServer?slider=' + slider.value);
+    }
+</script>
+
 </head>
 	<body>
-	    <div class="flex-container">
-            <h1> Current Mode: </h1>
-            <p style="padding-bottom: 5%;"></p>
-        </div>
         <div class="flex-container" style="padding-bottom: 2%;">
             <table>
                 <tr>
@@ -93,6 +90,7 @@ String homePagePart1 = F(R"=====(
                     <td>Temperature</td>
                     <td>
 )=====");
+
 String homePagePart2 = F(R"=====(
 </td>
                     <td>degrees Celcius</td>
@@ -101,16 +99,18 @@ String homePagePart2 = F(R"=====(
                     <td>Humidity</td>
                     <td>
 )=====");
+
 String homePagePart3 = F(R"=====(
 </td>
                     <td>%</td>
                 </tr>
             </table>
         </div>
-        <div class="flex-row" style="padding-left: 15%;">
+        <div class="flex-row" style="padding-left: 3.5%;flex-wrap: wrap;">
             <!--add graphs here-->
-            <iframe width="450" height="260" style="border: 1px solid #cccccc;" src="https://thingspeak.com/channels/2412315/charts/1?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&update=15"></iframe>
-            <iframe width="450" height="260" style="border: 1px solid #cccccc;" src="https://thingspeak.com/channels/2412315/charts/2?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&update=15"></iframe>
+            <iframe width="450" height="260" style="border: 1px solid #cccccc;" src="https://thingspeak.com/channels/2412315/charts/1?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&update=15" alt="Temperature graph"></iframe>
+            <iframe width="450" height="260" style="border: 1px solid #cccccc;" src="https://thingspeak.com/channels/2412315/charts/2?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&update=15" alt="Humidity graph"></iframe>
+            <iframe width="450" height="260" style="border: 1px solid #cccccc;" src="https://thingspeak.com/channels/2412315/charts/3?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&update=15" alt="graph for number of hours slept"></iframe>
 
         </div>
         <div>
@@ -118,15 +118,12 @@ String homePagePart3 = F(R"=====(
         </div>
         <div class="flex-row">
             <!--add buttons to change modes and slider here-->
-            <button class="button" onclick="fetch('/sentKeyPressToWebServer?button=N')" style="border-radius:50px 0px 0px 50px"type="button">Night Mode</button>
-            <button class="button" onclick="fetch('/sentKeyPressToWebServer?button=D')" type="button">Day Mode</button>
-            <button class="button" onclick="fetch('/sentKeyPressToWebServer?button=M')" style="border-right:none;border-radius:0px 50px 50px 0px" type="button">Mannual Mode</button>
+            <button class="button" onclick="fetch('/sentKeyPressToWebServer?button=0')" style="border-radius:50px 0px 0px 50px"type="button">Night Mode</button>
+            <button class="button" onclick="fetch('/sentKeyPressToWebServer?button=1')" type="button">Day Mode</button>
+            <button class="button" onclick="fetch('/sentKeyPressToWebServer?button=2')" style="border-right:none;border-radius:0px 50px 50px 0px" type="button">Mannual Mode</button>
         </div>
         <div class="slidecontainer">
-            <input type="range" min="0" max="255" class="slider">
-        </div>
-        <div>
-            <!--add buttons to set alarms here-->
+            <input type="range" min="0" max="255" class="slider" onchange="sendSliderValue(this)">
         </div>
 	</body>
 </html>
@@ -137,12 +134,14 @@ String homePagePart4 = F(R"=====(
 <!DOCTYPE html>
 <html lang="en" > <!-- Needed for Screenreaders !-->
 <head>
+    <meta http-equiv="refresh" content="30">
 <!-- UTF-8 character set covers most characters in the world -->
   <meta charset="utf-8">
   <!-- Make page respond to screen size !-->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <!--Include a Title. Used by Search Engines -->
-<title> Temperature Reading WebServer </title>
+</head>
+<!--Title. Used by Search Engines -->
+<title> Smart Bedside Lamp/Alarm WebServer </title>
 <style>
     *{
         font-family: Arial;
@@ -165,13 +164,7 @@ String homePagePart4 = F(R"=====(
     }
     body {       
 	    background-color: navy;
-	  }
-    h1{
-        font: bold;
-        font-size: 40px;
-        color: white;
-	    text-align: center;
-    }
+	}
     h2{
         font: bold;
         font-size: 40px;
@@ -210,12 +203,14 @@ String homePagePart4 = F(R"=====(
 
 </style>
 
+<script>
+    function sendSliderValue(slider) {
+        fetch('/sentSliderInputToWebServer?slider=' + slider.value);
+    }
+</script>
+
 </head>
 	<body>
-	    <div class="flex-container">
-            <h1> Current Mode: </h1>
-            <p style="padding-bottom: 5%;"></p>
-        </div>
         <div class="flex-container" style="padding-bottom: 2%;">
             <table>
                 <tr>
